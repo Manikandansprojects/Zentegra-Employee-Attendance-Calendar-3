@@ -36,10 +36,33 @@
 			{
 				empName = ifnull(leaveEntry.get("employee_name"),"");
 				empId = ifnull(leaveEntry.get("employee_id"),"");
-				leaveTypeRaw = ifnull(leaveEntry.get("leave_type"),"");
+				
+				// Fetch leave type from Leave_Days_Details.Leave_Type (with fallback to leave_type)
+				leaveTypeRaw = ifnull(leaveEntry.get("Leave_Days_Details.Leave_Type"),"");
+				if(leaveTypeRaw == "")
+				{
+					leaveTypeRaw = ifnull(leaveEntry.get("leave_type"),"");
+				}
+				if(leaveTypeRaw == "")
+				{
+					leaveTypeRaw = ifnull(leaveEntry.get("Leave_Type"),"");
+				}
+				
 				leaveDateStr = ifnull(leaveEntry.get("leave_date"),"");
 				dayType = ifnull(leaveEntry.get("day_type"),"");
 				approvalStatus = ifnull(leaveEntry.get("approval_status"),"");
+				
+				// Fetch first half or second half from Leave_Days_Details.br (with fallback to br)
+				br = ifnull(leaveEntry.get("Leave_Days_Details.br"),"");
+				if(br == "")
+				{
+					br = ifnull(leaveEntry.get("br"),"");
+				}
+				if(br == "")
+				{
+					br = ifnull(leaveEntry.get("BR"),"");
+				}
+				
 				if(approvalStatus != "Approved")
 				{
 					continue;
@@ -76,6 +99,7 @@
 				leaveInfo.put("leave_type",leaveType);
 				leaveInfo.put("day_type",dayType);
 				leaveInfo.put("employee_id",empId);
+				leaveInfo.put("br",br);
 				zenfirm_leaves.put(dateKey,leaveInfo);
 				if(leaveType == "CL")
 				{
@@ -109,46 +133,53 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
 
-        /* ============================================================
-           ZOHO CREATOR FROZEN LAYOUT
-           Uses 100vh + flex + JS-based height fix for iframe
-        ============================================================ */
         html, body { 
-            height: 100vh !important;        /* ✅ Force viewport height */
+            height: 100%;
             width: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden !important;     /* ✅ No outer scroll */
+            overflow: hidden;
+            background: #f8f9fa;
         }
         
         body { 
             font-family: 'Inter', sans-serif; 
-            background-color: #f8f9fa; 
             color: #333; 
             font-size: 13px; 
-            display: flex; 
-            flex-direction: column; 
         }
         
         .pdf-month-header { display: none; }
 
         /* ============================================================
-           LAYER 1: NAVBAR — FROZEN AT TOP
+           FIXED HEADER CONTAINER (Navbar + Legend)
+           Using position: sticky instead of fixed to work within Zoho
+        ============================================================ */
+        .header-container {
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* ============================================================
+           NAVBAR
         ============================================================ */
         .top-navbar { 
-            flex: 0 0 auto;                  /* ✅ Never grows/shrinks */
             background: #fff; 
             border-bottom: 1px solid #e9ecef; 
             padding: 10px 20px; 
             display: flex; 
             align-items: center; 
             justify-content: space-between; 
-            z-index: 1000; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
         }
-		/* Clickable HD link */
+		
 		.hd-link {
 			text-decoration: none !important;
 			display: inline-block;
@@ -174,57 +205,47 @@
         .view-toggle-btn-custom:hover { background: #3a56d4; color: #fff; }
 
         /* ============================================================
-           LAYER 2: LEGEND BAR — FROZEN BELOW NAVBAR
+           LEGEND BAR
         ============================================================ */
         .legend-bar { 
-            flex: 0 0 auto;                  /* ✅ Never grows/shrinks */
             background: #fff; 
             border-bottom: 1px solid #dee2e6;
-            padding: 10px 20px; 
+            padding: 8px 20px; 
             display: flex; 
             align-items: center; 
-            gap: 22px; 
+            gap: 15px; 
             flex-wrap: wrap; 
-            z-index: 200; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
         }
-        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #495057; font-weight: 500; }
-        .legend-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 22px; padding: 0 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #495057; font-weight: 500; }
+        .legend-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 50px; height: 22px; padding: 0 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
 
         /* ============================================================
-           LAYER 3: SCROLLABLE TABLE AREA — TAKES REMAINING SPACE
+           SCROLLABLE TABLE AREA
         ============================================================ */
-        .main-content { 
-            flex: 1 1 auto;                  /* ✅ Fills remaining space */
-            min-height: 0;                   /* ✅ Critical for flex scroll */
-            overflow: hidden;
-            display: flex; 
-            flex-direction: column; 
-            background-color: #fff;
-        }
-
-        .table-wrapper { 
-            flex: 1 1 auto; 
-            min-height: 0;                   /* ✅ Critical for inner scroll */
-            overflow: auto !important;       /* ✅ ONLY this scrolls */
-            position: relative; 
+        .table-container { 
+            height: calc(100vh - 120px);  /* Adjust based on header height */
+            overflow: auto;
+            background: #fff;
+            padding: 0 0 20px 0;
         }
 
         .attendance-table { 
             width: max-content; 
             min-width: 100%; 
             border-collapse: separate; 
-            border-spacing: 0; 
+            border-spacing: 0;
+            background: #fff;
         }
 
         /* ============================================================
-           STICKY DATE HEADER ROW — FROZEN AT TOP OF TABLE
+           STICKY TABLE HEADERS - FIXED INSIDE SCROLLABLE CONTAINER
         ============================================================ */
         .attendance-table thead { 
-            position: sticky !important;
-            top: 0 !important;
+            position: sticky;
+            top: 0;
             z-index: 100; 
         }
+        
         .attendance-table thead th { 
             background: #1b355a; 
             border-bottom: 2px solid #e9ecef; 
@@ -234,35 +255,33 @@
             font-size: 12px; 
             white-space: nowrap; 
             min-width: 70px; 
-            position: sticky !important;     /* ✅ Each th sticky */
-            top: 0 !important;
+            color: #ffffff;
         }
+        
         .attendance-table thead th .date-num { display: block; font-size: 15px; font-weight: 700; color: #ffffff; }
         .attendance-table thead th .day-name { display: block; font-size: 13px; font-weight: 500; color: #ffffff; margin-top: 2px; }
         
-        /* TOP-LEFT CORNER — EMPLOYEE NAME HEADER */
+        /* TOP-LEFT CORNER — Employee Name Header (Sticky Left + Top) */
         .attendance-table thead th.employee-header { 
             min-width: 220px; 
             text-align: left; 
             padding-left: 20px; 
             font-size: 18px; 
-            position: sticky !important; 
-            left: 0 !important; 
-            top: 0 !important;               /* ✅ Sticks to TOP and LEFT */
-            z-index: 110;                    /* ✅ Above all other headers */
+            position: sticky; 
+            left: 0; 
+            top: 0;
+            z-index: 110;
             background: #1b355a; 
             color: #ffffff; 
         }
         
-        /* TOTAL HEADERS (Present, SL, CL...) — STICKY ON TOP */
+        /* TOTAL HEADERS */
         .attendance-table thead th.total-header { 
             background: #eef2ff; 
             border-bottom: 2px solid #4361ee; 
             border-left: 1px solid #c7d2fe; 
             min-width: 85px; 
-            position: sticky !important; 
-            top: 0 !important;
-            z-index: 95; 
+            color: #1e3a8a;
         }
         .attendance-table thead th.total-header .total-label { display: block; font-size: 11px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.4px; }
         .attendance-table thead th.total-header .total-sub { display: block; font-size: 9px; font-weight: 500; color: #6366f1; margin-top: 2px; }
@@ -280,10 +299,10 @@
         .attendance-table thead th.total-header.absent-header .total-label { color: #a31d1d; }
         .attendance-table thead th.total-header.absent-header .total-sub { color: #e53e3e; }
         
-        /* STICKY EMPLOYEE NAME COLUMN (scrolls vertical, frozen horizontal) */
+        /* STICKY EMPLOYEE NAME COLUMN */
         .attendance-table tbody td.employee-cell { 
-            position: sticky !important; 
-            left: 0 !important; 
+            position: sticky; 
+            left: 0; 
             z-index: 50; 
             background: #fff; 
             min-width: 220px; 
@@ -296,16 +315,19 @@
         .employee-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid #e9ecef; flex-shrink: 0; }
         .employee-details { display: flex; flex-direction: column; }
         .employee-name { font-size: 14px; font-weight: 600; color: #212529; margin-top: 1px; }
+        
         .attendance-table tbody tr { transition: background 0.15s; }
         .attendance-table tbody tr:hover { background-color: #f8f9ff; }
         .attendance-table tbody tr:hover td.employee-cell { background-color: #f8f9ff; }
         .attendance-table tbody td { padding: 8px 4px; text-align: center; vertical-align: middle; border-bottom: 1px solid #f1f3f5; min-width: 70px; }
+        
         .total-cell { background: #f8faff !important; border-left: 1px solid #e0e7ff !important; font-weight: 700; font-size: 14px; color: #1e3a8a; }
         .total-cell.first-total { border-left: 2px solid #4361ee !important; }
         .total-cell.sl-cell { background: #f5f0ff !important; border-left: 1px solid #ddd6fe !important; }
         .total-cell.cl-cell { background: #eff6ff !important; border-left: 1px solid #bfdbfe !important; }
         .total-cell.lop-cell { background: #fff5f5 !important; border-left: 1px solid #fecaca !important; }
         .total-cell.absent-only-cell { background: #fff5f5 !important; border-left: 1px solid #f4c2c2 !important; }
+        
         .total-value { display: inline-flex; align-items: center; justify-content: center; min-width: 35px; height: 30px; padding: 0 8px; border-radius: 6px; font-weight: 700; font-size: 13px; }
         .total-present { background: #e7f6ec; color: #1b6e3d; }
         .total-absent { background: #fdecec; color: #a31d1d; }
@@ -314,32 +336,44 @@
         .total-cl { background: #dbeafe; color: #1e40af; }
         .total-lop { background: #fee2e2; color: #991b1b; }
         .total-absent-only { background: #fdecec; color: #a31d1d; }
-        .status-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 36px; padding: 0 8px; border-radius: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; position: relative; }
+        
+        .status-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 58px; height: 36px; padding: 0 6px; border-radius: 6px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; position: relative; }
         .status-fd { background: #e7f6ec; color: #1b6e3d; border: 1px solid #e7f6ec; }
         .status-fd::after { background: #1b6e3d; }
         .status-hd { background: #fef3c7; color: #b45309; border: 1px solid #ffeeba; }
         .status-hd::after { background: #ffc107; }
+        .status-lh { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+        .status-lh::after { background: #d32f2f; }
         .status-absent { background: #fdecec; color: #a31d1d; border: 1px solid #f4c2c2; }
         .status-absent::after { background: #d63838; }
         .status-leave-sick { background: #ede9fe; color: #5b21b6; border: 1px solid #ddd6fe; }
         .status-leave-sick::after { background: #7c3aed; }
+        .status-sl1 { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+        .status-sl1::after { background: #9333ea; }
+        .status-sl2 { background: #fae8ff; color: #701a75; border: 1px solid #f5d0fe; }
+        .status-sl2::after { background: #d946ef; }
         .status-leave-casual { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
         .status-leave-casual::after { background: #2563eb; }
-        .status-lop { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-        .status-lop::after { background: #dc2626; }
-        .status-cl1 { background: #cffafe; color: #155e75; border: 1px solid #a5f3fc; }
-        .status-cl1::after { background: #0891b2; }
-        .status-cl2 { background: #cffafe; color: #155e75; border: 1px solid #a5f3fc; }
-        .status-cl2::after { background: #0891b2; }
+        .status-cl1 { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+        .status-cl1::after { background: #0284c7; }
+        .status-cl2 { background: #f0f9ff; color: #075985; border: 1px solid #e0f2fe; }
+        .status-cl2::after { background: #0ea5e9; }
+        .status-lop { background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; }
+        .status-lop::after { background: #e11d48; }
+        .status-lop1 { background: #fff1f2; color: #be123c; border: 1px solid #ffe4e6; }
+        .status-lop1::after { background: #f43f5e; }
+        .status-lop2 { background: #fff5f5; color: #9b2c2c; border: 1px solid #fed7d7; }
+        .status-lop2::after { background: #e53e3e; }
         .status-w { background: #e2e8f0; color: #475569; border: 1px solid #cbd2db; }
         .status-w::after { background: #718096; }
+        
         .status-badge::after { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 22px; height: 2px; border-radius: 1px; }
         .attendance-table tbody td.weekend-col { background-color: #eef2f5 !important; }
         
-        .table-wrapper::-webkit-scrollbar { width: 10px; height: 10px; }
-        .table-wrapper::-webkit-scrollbar-track { background: #f1f3f5; }
-        .table-wrapper::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 5px; }
-        .table-wrapper::-webkit-scrollbar-thumb:hover { background: #adb5bd; }
+        .table-container::-webkit-scrollbar { width: 10px; height: 10px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f3f5; }
+        .table-container::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 5px; }
+        .table-container::-webkit-scrollbar-thumb:hover { background: #adb5bd; }
         
         .attendance-table tbody tr:nth-child(even) td { background-color: #fdfdfe; }
         .attendance-table tbody tr:nth-child(even) td.employee-cell { background-color: #fdfdfe; }
@@ -356,6 +390,7 @@
             .attendance-table thead th, .attendance-table tbody td { min-width: 55px; font-size: 11px; }
             .employee-cell { min-width: 160px !important; }
             .employee-name { font-size: 12px; }
+            .table-container { height: calc(100vh - 140px); }
         }
 
         @media print {
@@ -373,23 +408,25 @@
                 padding-bottom: 5px;
             }
             
-            .top-navbar, .legend-bar, form, .view-toggle-btn-custom { display: none !important; }
+            .header-container { display: none !important; }
             
             html, body {
                 height: auto !important;
                 overflow: visible !important;
                 background: #fff !important;
                 color: #000 !important;
-                display: block !important;
+                position: static !important;
             }
             
-            .main-content, .table-wrapper {
+            .table-container {
+                position: static !important;
                 height: auto !important;
                 max-height: none !important;
                 overflow: visible !important;
                 display: block !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                top: auto !important;
             }
             
             .attendance-table {
@@ -465,55 +502,61 @@
 
     <div class="pdf-month-header">Attendance Tracker Summary &mdash; <%=baseDate.toString("MMMM yyyy")%></div>
 
-    <!-- LAYER 1: NAVBAR -->
-    <nav class="top-navbar">
-        <div class="nav-left">
-            <ul class="breadcrumb-custom"><li><h3 style="margin:0;"><b>Employee Attendance Calendar</b></h3></li></ul>
-        </div>
-        <div class="nav-center">
-            <div class="month-nav">
-                <a href="#Page:Test_Page?d=<%=prevMonth%>&emp=<%=searchQuery%>" class="month-nav-btn text-decoration-none"><i class="fas fa-chevron-left"></i></a>
-                <span class="current-month"><%=baseDate.toString("MMMM yyyy")%></span>
-                <a href="#Page:Test_Page?d=<%=nextMonth%>&emp=<%=searchQuery%>" class="month-nav-btn text-decoration-none"><i class="fas fa-chevron-right"></i></a>
+    <!-- STICKY HEADER (Navbar + Legend) -->
+    <div class="header-container">
+        <!-- NAVBAR -->
+        <nav class="top-navbar">
+            <div class="nav-left">
+                <ul class="breadcrumb-custom"><li><h3 style="margin:0;"><b>Employee Attendance Calendar</b></h3></li></ul>
             </div>
-        </div>
-        <div class="nav-right">
-            <form action="/printpdf.do" method="get" target="_blank" style="margin: 0; padding: 0; display: inline-block;">
-                <input type="hidden" name="sharedBy" value="<%=zoho.adminuser%>">
-                <input type="hidden" name="appLinkName" value="<%=zoho.appname%>">
-                <input type="hidden" name="pageLinkName" value="Test_Page">
-                <input type="hidden" name="viewType" value="page">
-                <input type="hidden" name="d" value="<%=baseDate.toString("dd-MMM-yyyy")%>">
-                <input type="hidden" name="emp" value="<%=searchQuery%>">
-                <input type="hidden" name="landscape" value="true">
-                <a href="https://creatorapp.zoho.in/export/zentegraindia/attendance-payroll-management/pdf/Test_Page?d=<%=baseDate.toString("yyyy-MM-dd")%>&emp=<%=searchQuery%>" class="text-decoration-none">
-                    <button type="button" class="view-toggle-btn-custom"><i class="fas fa-file-pdf"></i> Export PDF</button>
-                </a>
-            </form>
-        </div>
-    </nav>
+            <div class="nav-center">
+                <div class="month-nav">
+                    <a href="#Page:Test_Page?d=<%=prevMonth%>&emp=<%=searchQuery%>" class="month-nav-btn text-decoration-none"><i class="fas fa-chevron-left"></i></a>
+                    <span class="current-month"><%=baseDate.toString("MMMM yyyy")%></span>
+                    <a href="#Page:Test_Page?d=<%=nextMonth%>&emp=<%=searchQuery%>" class="month-nav-btn text-decoration-none"><i class="fas fa-chevron-right"></i></a>
+                </div>
+            </div>
+            <div class="nav-right">
+                <form action="/printpdf.do" method="get" target="_blank" style="margin: 0; padding: 0; display: inline-block;">
+                    <input type="hidden" name="sharedBy" value="<%=zoho.adminuser%>">
+                    <input type="hidden" name="appLinkName" value="<%=zoho.appname%>">
+                    <input type="hidden" name="pageLinkName" value="Test_Page">
+                    <input type="hidden" name="viewType" value="page">
+                    <input type="hidden" name="d" value="<%=baseDate.toString("dd-MMM-yyyy")%>">
+                    <input type="hidden" name="emp" value="<%=searchQuery%>">
+                    <input type="hidden" name="landscape" value="true">
+                    <a href="https://creatorapp.zoho.in/export/zentegraindia/attendance-payroll-management/pdf/Test_Page?d=<%=baseDate.toString("yyyy-MM-dd")%>&emp=<%=searchQuery%>" class="text-decoration-none">
+                        <button type="button" class="view-toggle-btn-custom"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                    </a>
+                </form>
+            </div>
+        </nav>
 
-    <!-- LAYER 2: LEGEND -->
-    <div class="legend-bar">
-        <div class="legend-item"><span class="legend-chip status-fd" style="color:#fff;">P</span>Full Day Present (&ge; 8 Hrs / Friday &ge; 7 Hrs)</div>
-        <div class="legend-item"><span class="legend-chip status-hd">HD</span>Half Day (&ge; 4 Hrs)</div>
-        <div class="legend-item"><span class="legend-chip status-absent">A</span>Absent (&lt; 4 Hrs)</div>
-        <div class="legend-item"><span class="legend-chip status-leave-sick">SL</span>Sick Leave</div>
-        <div class="legend-item"><span class="legend-chip status-leave-casual">CL</span>Casual Leave</div>
-        <div class="legend-item"><span class="legend-chip status-cl1">CL1</span>CL 1st</div>
-        <div class="legend-item"><span class="legend-chip status-cl2">CL2</span>CL 2nd</div>
-        <div class="legend-item"><span class="legend-chip status-lop">LOP</span>Loss of Pay</div>
-        <div class="legend-item"><span class="legend-chip status-w">W</span>Weekend Off</div>
-        <div class="legend-item"><span class="text-muted" style="margin-right:4px; font-weight:bold;">—</span>Future Date</div>
+        <!-- LEGEND -->
+        <div class="legend-bar">
+            <div class="legend-item"><span class="legend-chip status-fd">P</span>Full Day Present (&ge; 8 Hrs)</div>
+            <div class="legend-item"><span class="legend-chip status-lh">LHW</span>Low Hours Worked (&lt; 8 Hrs)</div>
+            <div class="legend-item"><span class="legend-chip status-absent">A</span>Absent (0 Hrs)</div>
+            <div class="legend-item"><span class="legend-chip status-leave-casual">CL</span>CL Full</div>
+            <div class="legend-item"><span class="legend-chip status-cl1">CL 1st</span>CL 1st Half</div>
+            <div class="legend-item"><span class="legend-chip status-cl2">CL 2nd</span>CL 2nd Half</div>
+            <div class="legend-item"><span class="legend-chip status-leave-sick">SL</span>Sick Leave Full</div>
+            <div class="legend-item"><span class="legend-chip status-sl1">SL 1st</span>Sick Leave 1st Half</div>
+            <div class="legend-item"><span class="legend-chip status-sl2">SL 2nd</span>Sick Leave 2nd Half</div>
+            <div class="legend-item"><span class="legend-chip status-lop1">LOP 1st</span>LOP 1st Half</div>
+            <div class="legend-item"><span class="legend-chip status-lop2">LOP 2nd</span>LOP 2nd Half</div>
+            <div class="legend-item"><span class="legend-chip status-lop">LOP</span>LOP Full Day</div>
+            <div class="legend-item"><span class="legend-chip status-w">W</span>Weekend Off</div>
+            <div class="legend-item"><span class="text-muted" style="margin-right:4px; font-weight:bold;">—</span>Future Date</div>
+        </div>
     </div>
 
-    <!-- LAYER 3: SCROLLABLE TABLE -->
-    <div class="main-content">
-        <div class="table-wrapper" id="tableWrapper">
-            <table class="attendance-table">
-                <thead>
-                    <tr>
-                        <th class="employee-header"><b>Employee Name</b></th>
+    <!-- SCROLLABLE TABLE -->
+    <div class="table-container" id="tableContainer">
+        <table class="attendance-table">
+            <thead>
+                <tr>
+                    <th class="employee-header"><b>Employee Name</b></th>
 <%
 	for each  dayIdx in manual_days
 	{
@@ -532,33 +575,33 @@
 	}
 	%>
 <th class="total-header first-total"><span class="total-label">Present</span><span class="total-sub">Total</span></th>
-                        <th class="total-header"><span class="total-label">Absent</span><span class="total-sub">Total</span></th>
-                        <th class="total-header"><span class="total-label">Half Day</span><span class="total-sub">Total</span></th>
-                        <th class="total-header sl-header"><span class="total-label">Sick Leave</span><span class="total-sub">SL Count</span></th>
-                        <th class="total-header cl-header"><span class="total-label">Casual Leave</span><span class="total-sub">CL Count</span></th>
-                        <th class="total-header lop-header"><span class="total-label">LOP</span><span class="total-sub">Loss of Pay</span></th>
-                        <th class="total-header absent-header"><span class="total-label">Full Day Absent</span><span class="total-sub">No Leave</span></th>
-                    </tr>
-                </thead>
-                <tbody>
+                    <th class="total-header"><span class="total-label">Absent</span><span class="total-sub">Total</span></th>
+                    <th class="total-header"><span class="total-label">Half Day</span><span class="total-sub">Total</span></th>
+                    <th class="total-header sl-header"><span class="total-label">Sick Leave</span><span class="total-sub">SL Count</span></th>
+                    <th class="total-header cl-header"><span class="total-label">Casual Leave</span><span class="total-sub">CL Count</span></th>
+                    <th class="total-header lop-header"><span class="total-label">LOP</span><span class="total-sub">Loss of Pay</span></th>
+                    <th class="total-header absent-header"><span class="total-label">Full Day Absent</span><span class="total-sub">No Leave</span></th>
+                </tr>
+            </thead>
+            <tbody>
 <%
 	for each  name in emp_names
 	{
 		rowPresent = 0.0;
 		rowAbsent = 0.0;
 		rowHalfDay = 0;
-		rowSL = 0;
-		rowCL = 0;
-		rowLOP = 0;
-		rowPureAbsent = 0;
+		rowSL = 0.0;
+		rowCL = 0.0;
+		rowLOP = 0.0;
+		rowPureAbsent = 0.0;
 		%>
 <tr>
-                        <td class="employee-cell">
-                            <div class="employee-info">
-                                <img src="https://ui-avatars.com/api/?name=<%=zoho.encryption.urlEncode(name)%>&background=4361ee&color=fff&size=80" alt="<%=name%>" class="employee-avatar">
-                                <div class="employee-details"><span class="employee-name"><%=name%></span></div>
-                            </div>
-                        </td>
+                    <td class="employee-cell">
+                        <div class="employee-info">
+                            <img src="https://ui-avatars.com/api/?name=<%=zoho.encryption.urlEncode(name)%>&background=4361ee&color=fff&size=80" alt="<%=name%>" class="employee-avatar">
+                            <div class="employee-details"><span class="employee-name"><%=name%></span></div>
+                        </div>
+                    </td>
 <%
 		for each  dayIdx in manual_days
 		{
@@ -567,7 +610,6 @@
 				checkDate = baseDate.addDay(dayIdx);
 				dayNameString = checkDate.toString("EEE");
 				isWE = dayNameString == "Sat" || dayNameString == "Sun";
-				isFri = dayNameString == "Fri";
 				isFuture = checkDate > today;
 				daily_att = Attendance[Employee.Name == name && Date_field == checkDate];
 				dateKey = name + "|" + checkDate.toString("yyyy-MM-dd");
@@ -575,27 +617,36 @@
 				hasLeave = false;
 				leaveType = "";
 				leaveDayType = "";
+				isHalfDay = false;
+				isFH = false;
+				isSH = false;
+				
 				if(leaveInfo != null)
 				{
 					hasLeave = true;
 					leaveType = leaveInfo.get("leave_type");
 					leaveDayType = leaveInfo.get("day_type");
-				}
-				displayLeaveType = leaveType;
-				if(leaveType == "CL")
-				{
-					monthKey = name + "|" + checkDate.toString("yyyy-MM");
-					if(cl_dates_tracker.contains(monthKey))
+					brVal = ifnull(leaveInfo.get("br"),"");
+					brLower = brVal.toLowerCase();
+					dayTypeLower = ifnull(leaveDayType,"").toLowerCase();
+					
+					if(brLower.contains("First Half") || brLower.contains("1st") || brLower.contains("fh"))
 					{
-						clDates = cl_dates_tracker.get(monthKey);
-						clIndex = clDates.indexOf(checkDate.toString("yyyy-MM-dd"));
-						if(clIndex >= 0)
-						{
-							clNum = clIndex + 1;
-							displayLeaveType = "CL " + clNum;
-						}
+						isHalfDay = true;
+						isFH = true;
+					}
+					else if(brLower.contains("Second Half") || brLower.contains("2nd") || brLower.contains("sh"))
+					{
+						isHalfDay = true;
+						isSH = true;
+					}
+					else if(dayTypeLower.contains("half"))
+					{
+						isHalfDay = true;
+						isFH = true;
 					}
 				}
+				
 				displayStatus = "";
 				badgeClass = "";
 				titleText = "";
@@ -624,184 +675,188 @@
 							hoursWorked = att.Final_Hours_Worked;
 						}
 					}
-					requiredPresentHours = if(isFri,8.0,8.0);
-					if(hoursWorked >= requiredPresentHours)
+					
+					if(hoursWorked >= 8.0)
 					{
 						rowPresent = rowPresent + 1;
 						%>
 <span class="status-badge status-fd" title="Full Day Present (<%=hoursWorked%> hrs)">P</span>
 <%
 					}
-					else if(hoursWorked >= 4)
+					else
 					{
-						rowPresent = rowPresent + 0.5;
-						rowAbsent = rowAbsent + 0.5;
-						rowHalfDay = rowHalfDay + 1;
-						if(hasLeave)
+						if(hasLeave && isHalfDay)
 						{
-							displayStatus = displayLeaveType;
-							titleText = "Half Day + " + displayLeaveType + " (" + hoursWorked + " hrs)";
-							if(leaveType == "SL")
+							if(hoursWorked >= 4.0)
 							{
-								badgeClass = "status-leave-sick";
-								rowSL = rowSL + 1;
-							}
-							else if(leaveType == "LOP")
-							{
-								badgeClass = "status-lop";
-								rowLOP = rowLOP + 1;
-							}
-							else if(leaveType == "CL")
-							{
-								if(displayLeaveType == "CL 1")
+								rowPresent = rowPresent + 0.5;
+								rowAbsent = rowAbsent + 0.5;
+								rowHalfDay = rowHalfDay + 1;
+								leaveIncrement = 0.5;
+								
+								if(leaveType == "SL")
 								{
-									badgeClass = "status-cl1";
+									if(isFH) { displayStatus = "SL 1st"; badgeClass = "status-sl1"; }
+									else { displayStatus = "SL 2nd"; badgeClass = "status-sl2"; }
+									rowSL = rowSL + leaveIncrement;
 								}
-								else if(displayLeaveType == "CL 2")
+								else if(leaveType == "LOP")
 								{
-									badgeClass = "status-cl2";
+									if(isFH) { displayStatus = "LOP 1st"; badgeClass = "status-lop1"; }
+									else { displayStatus = "LOP 2nd"; badgeClass = "status-lop2"; }
+									rowLOP = rowLOP + leaveIncrement;
 								}
 								else
 								{
-									badgeClass = "status-leave-casual";
+									if(isFH) { displayStatus = "CL 1st"; badgeClass = "status-cl1"; }
+									else { displayStatus = "CL 2nd"; badgeClass = "status-cl2"; }
+									rowCL = rowCL + leaveIncrement;
 								}
-								rowCL = rowCL + 1;
+								titleText = displayStatus + " + Worked (" + hoursWorked + " hrs)";
 							}
 							else
 							{
-								badgeClass = "status-hd";
+								rowAbsent = rowAbsent + 1.0;
+								rowPureAbsent = rowPureAbsent + 0.5;
+								leaveIncrement = 0.5;
+								
+								if(leaveType == "SL")
+								{
+									if(isFH) { displayStatus = "SL 1st"; badgeClass = "status-sl1"; }
+									else { displayStatus = "SL 2nd"; badgeClass = "status-sl2"; }
+									rowSL = rowSL + leaveIncrement;
+								}
+								else if(leaveType == "LOP")
+								{
+									if(isFH) { displayStatus = "LOP 1st"; badgeClass = "status-lop1"; }
+									else { displayStatus = "LOP 2nd"; badgeClass = "status-lop2"; }
+									rowLOP = rowLOP + leaveIncrement;
+								}
+								else
+								{
+									if(isFH) { displayStatus = "CL 1st"; badgeClass = "status-cl1"; }
+									else { displayStatus = "CL 2nd"; badgeClass = "status-cl2"; }
+									rowCL = rowCL + leaveIncrement;
+								}
+								titleText = displayStatus + " + Half Day Absent (Worked " + hoursWorked + " hrs)";
 							}
+							%>
+<span class="status-badge <%=badgeClass%>" title="<%=titleText%>"><%=displayStatus%></span>
+<%
+						}
+						else if(hasLeave && !isHalfDay)
+						{
+							rowAbsent = rowAbsent + 1.0;
+							if(leaveType == "SL")
+							{
+								displayStatus = "SL";
+								badgeClass = "status-leave-sick";
+								rowSL = rowSL + 1.0;
+							}
+							else if(leaveType == "LOP")
+							{
+								displayStatus = "LOP";
+								badgeClass = "status-lop";
+								rowLOP = rowLOP + 1.0;
+							}
+							else
+							{
+								displayStatus = "CL";
+								badgeClass = "status-leave-casual";
+								rowCL = rowCL + 1.0;
+							}
+							titleText = displayStatus + " Full Day Leave (Worked " + hoursWorked + " hrs)";
+							%>
+<span class="status-badge <%=badgeClass%>" title="<%=titleText%>"><%=displayStatus%></span>
+<%
 						}
 						else
 						{
-							// Build dynamic URL with employee filter and date filter
-							id = emp.Employee.ID;
-							attend_emo_obj = Attendance[Employee.Name == name];
-							empName = name;
-							dateFormatted = checkDate.toString("dd-MMM-yyyy");
-							// 							// 1. Get the time string from your Date-Time field
-							// 							timeString = input.Date_Time_Field.toString("HH:mm:ss");
-							// 							// 2. Convert and map it directly into your Time field
-							// 							input.Time_Field = timeString.toTime("HH:mm:ss");
-							// If Punch_Time is a DateTime field
-							// 							time = "GET_ZOHO_DATE_TIME_FIELD_HERE";
-							// 							timeReformat = zohoDateTime.replaceAll("T"," ");
-							// 							punchDateTime = emp.Punches.Punch_Time.getTime(12, true);         // Single record
-							emp_punch = Attendance[Date_field == checkDate.toString("dd-MMM-yyyy") && Employee == attend_emo_obj.Employee];
-							punchDateTime = emp_punch.Punches.Punch_Time.get(0).getTime(12,true);
-							hdreporturl = "https://creatorapp.zoho.in/zentegraindia/attendance-payroll-management#Form:Attendance_Regularization?zc_LoadIn=dialog&Employee=" + attend_emo_obj.Employee + "&Date_field=" + checkDate.toString("dd-MMM-yyyy") + "&From_Time=" + punchDateTime;
-							displayStatus = "HD";
-							badgeClass = "status-hd";
-							titleText = "Half Day - " + name + " on " + dateFormatted + " (" + hoursWorked + " hrs) - Click to view report";
+							if(hoursWorked >= 4.0)
+							{
+								rowPresent = rowPresent + 0.5;
+								rowAbsent = rowAbsent + 0.5;
+								rowHalfDay = rowHalfDay + 1;
+							}
+							else
+							{
+								rowAbsent = rowAbsent + 1.0;
+								rowPureAbsent = rowPureAbsent + 1.0;
+							}
+							displayStatus = "LHW";
+							badgeClass = "status-lh";
+							titleText = "Low Work Hours (" + hoursWorked + " hrs)";
 							%>
-<a href="<%=hdreporturl%>" 
-						   onclick="window.open(this.href, 'HDReportPopup_<%=name%>_<%=dateFormatted%>', 'width=100,height=700,left=200,top=100,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no'); return false;" 
-						   class="hd-link"
-						   title="<%=titleText%>"
-						   style="cursor: pointer; text-decoration: none;">
-							<span class="status-badge status-hd">HD</span>
-						</a>
+<span class="status-badge <%=badgeClass%>" title="<%=titleText%>"><%=displayStatus%></span>
 <%
 						}
 					}
-					else
+				}
+				else
+				{
+					if(hasLeave)
 					{
-						rowAbsent = rowAbsent + 1;
-						if(hasLeave)
+						if(isHalfDay)
 						{
-							displayStatus = displayLeaveType;
-							titleText = "Leave: " + displayLeaveType + " (" + hoursWorked + " hrs)";
+							rowAbsent = rowAbsent + 1.0;
+							rowPureAbsent = rowPureAbsent + 0.5;
+							leaveIncrement = 0.5;
+							
 							if(leaveType == "SL")
 							{
-								badgeClass = "status-leave-sick";
-								rowSL = rowSL + 1;
+								if(isFH) { displayStatus = "SL 1st"; badgeClass = "status-sl1"; }
+								else { displayStatus = "SL 2nd"; badgeClass = "status-sl2"; }
+								rowSL = rowSL + leaveIncrement;
 							}
 							else if(leaveType == "LOP")
 							{
-								badgeClass = "status-lop";
-								rowLOP = rowLOP + 1;
-							}
-							else if(leaveType == "CL")
-							{
-								if(displayLeaveType == "CL 1")
-								{
-									badgeClass = "status-cl1";
-								}
-								else if(displayLeaveType == "CL 2")
-								{
-									badgeClass = "status-cl2";
-								}
-								else
-								{
-									badgeClass = "status-leave-casual";
-								}
-								rowCL = rowCL + 1;
+								if(isFH) { displayStatus = "LOP 1st"; badgeClass = "status-lop1"; }
+								else { displayStatus = "LOP 2nd"; badgeClass = "status-lop2"; }
+								rowLOP = rowLOP + leaveIncrement;
 							}
 							else
 							{
-								badgeClass = "status-absent";
+								if(isFH) { displayStatus = "CL 1st"; badgeClass = "status-cl1"; }
+								else { displayStatus = "CL 2nd"; badgeClass = "status-cl2"; }
+								rowCL = rowCL + leaveIncrement;
 							}
+							titleText = displayStatus + " + Half Day Absent";
 						}
 						else
 						{
-							displayStatus = "A";
-							badgeClass = "status-absent";
-							titleText = "Absent (" + hoursWorked + " hrs)";
-							rowPureAbsent = rowPureAbsent + 1;
+							rowAbsent = rowAbsent + 1.0;
+							if(leaveType == "SL")
+							{
+								displayStatus = "SL";
+								badgeClass = "status-leave-sick";
+								rowSL = rowSL + 1.0;
+							}
+							else if(leaveType == "LOP")
+							{
+								displayStatus = "LOP";
+								badgeClass = "status-lop";
+								rowLOP = rowLOP + 1.0;
+							}
+							else
+							{
+								displayStatus = "CL";
+								badgeClass = "status-leave-casual";
+								rowCL = rowCL + 1.0;
+							}
+							titleText = displayStatus + " Full Day Leave";
 						}
 						%>
 <span class="status-badge <%=badgeClass%>" title="<%=titleText%>"><%=displayStatus%></span>
 <%
 					}
-				}
-				else
-				{
-					rowAbsent = rowAbsent + 1;
-					if(hasLeave)
-					{
-						displayStatus = displayLeaveType;
-						titleText = "Leave: " + displayLeaveType;
-						if(leaveType == "SL")
-						{
-							badgeClass = "status-leave-sick";
-							rowSL = rowSL + 1;
-						}
-						else if(leaveType == "LOP")
-						{
-							badgeClass = "status-lop";
-							rowLOP = rowLOP + 1;
-						}
-						else if(leaveType == "CL")
-						{
-							if(displayLeaveType == "CL 1")
-							{
-								badgeClass = "status-cl1";
-							}
-							else if(displayLeaveType == "CL 2")
-							{
-								badgeClass = "status-cl2";
-							}
-							else
-							{
-								badgeClass = "status-leave-casual";
-							}
-							rowCL = rowCL + 1;
-						}
-						else
-						{
-							badgeClass = "status-absent";
-						}
-					}
 					else
 					{
-						displayStatus = "A";
-						badgeClass = "status-absent";
-						titleText = "Absent";
-						rowPureAbsent = rowPureAbsent + 1;
-					}
-					%>
-<span class="status-badge <%=badgeClass%>" title="<%=titleText%>"><%=displayStatus%></span>
+						rowAbsent = rowAbsent + 1.0;
+						rowPureAbsent = rowPureAbsent + 1.0;
+						%>
+<span class="status-badge status-absent" title="Absent">A</span>
 <%
+					}
 				}
 				%>
 </td>
@@ -810,48 +865,37 @@
 		}
 		%>
 <td class="total-cell first-total"><span class="total-value total-present"><%=rowPresent%></span></td>
-                        <td class="total-cell"><span class="total-value total-absent"><%=rowAbsent%></span></td>
-                        <td class="total-cell"><span class="total-value total-hd-count"><%=rowHalfDay%></span></td>
-                        <td class="total-cell sl-cell"><span class="total-value total-sl"><%=rowSL%></span></td>
-                        <td class="total-cell cl-cell"><span class="total-value total-cl"><%=rowCL%></span></td>
-                        <td class="total-cell lop-cell"><span class="total-value total-lop"><%=rowLOP%></span></td>
-                        <td class="total-cell absent-only-cell"><span class="total-value total-absent-only"><%=rowPureAbsent%></span></td>
-                    </tr>
+                    <td class="total-cell"><span class="total-value total-absent"><%=rowAbsent%></span></td>
+                    <td class="total-cell"><span class="total-value total-hd-count"><%=rowHalfDay%></span></td>
+                    <td class="total-cell sl-cell"><span class="total-value total-sl"><%=rowSL%></span></td>
+                    <td class="total-cell cl-cell"><span class="total-value total-cl"><%=rowCL%></span></td>
+                    <td class="total-cell lop-cell"><span class="total-value total-lop"><%=rowLOP%></span></td>
+                    <td class="total-cell absent-only-cell"><span class="total-value total-absent-only"><%=rowPureAbsent%></span></td>
+                </tr>
 <%
 	}
 	%>
 </tbody>
-            </table>
-        </div>
+        </table>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- ============================================================
-         JAVASCRIPT FIX FOR ZOHO IFRAME HEIGHT
-         Forces body to use actual visible height instead of broken 100%
-         This makes sticky headers work properly inside Zoho
-    ============================================================ -->
     <script>
-        function fixLayoutHeight() {
-            // Force body height to viewport height
-            document.documentElement.style.height = window.innerHeight + 'px';
-            document.body.style.height = window.innerHeight + 'px';
+        function fixLayout() {
+            // Get header height
+            var headerHeight = document.querySelector('.header-container').offsetHeight;
+            // Set table container height
+            var tableContainer = document.querySelector('.table-container');
+            tableContainer.style.height = 'calc(100vh - ' + headerHeight + 'px)';
         }
         
-        // Run on load
-        fixLayoutHeight();
-        
-        // Run after a small delay (Zoho iframe may resize)
-        setTimeout(fixLayoutHeight, 100);
-        setTimeout(fixLayoutHeight, 500);
-        setTimeout(fixLayoutHeight, 1000);
-        
-        // Run on window resize
-        window.addEventListener('resize', fixLayoutHeight);
-        
-        // Run on orientation change (mobile)
-        window.addEventListener('orientationchange', fixLayoutHeight);
+        // Run on load and resize
+        window.addEventListener('load', fixLayout);
+        window.addEventListener('resize', fixLayout);
+        setTimeout(fixLayout, 100);
+        setTimeout(fixLayout, 300);
+        setTimeout(fixLayout, 500);
     </script>
 </body>
 </html>
