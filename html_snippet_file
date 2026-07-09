@@ -12,7 +12,6 @@
 	lastDayOfMonth = baseDate.addMonth(1).subDay(1).getDay();
 	manual_days = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30};
 	all_attendance = Attendance[ID != 0];
-	// Build employee name list
 	emp_names = List();
 	for each  rec in all_attendance
 	{
@@ -26,7 +25,6 @@
 		}
 	}
 	emp_names.sort(true);
-	// --- FETCH LEAVE DATA FROM test() FUNCTION ---
 	zenfirm_leaves = Map();
 	cl_dates_tracker = Map();
 	try 
@@ -99,7 +97,6 @@
 		}
 	}	catch (e)
 	{
-		// Silently continue if function call fails
 	}
 	%>
 <!DOCTYPE html>
@@ -115,13 +112,15 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         /* ============================================================
-           LAYOUT ARCHITECTURE: LOCKED LAYERS FOR PERFECT SCROLLING
-           Order: Navbar | Legend | Scrollable Table Area
+           ZOHO CREATOR FROZEN LAYOUT
+           Uses 100vh + flex + JS-based height fix for iframe
         ============================================================ */
         html, body { 
-            height: 100%; 
+            height: 100vh !important;        /* ✅ Force viewport height */
             width: 100%;
-            overflow: hidden; /* Prevents outer browser scroll */
+            margin: 0;
+            padding: 0;
+            overflow: hidden !important;     /* ✅ No outer scroll */
         }
         
         body { 
@@ -135,9 +134,11 @@
         
         .pdf-month-header { display: none; }
 
-        /* --- LAYER 1: FIXED NAVBAR (TOP) --- */
+        /* ============================================================
+           LAYER 1: NAVBAR — FROZEN AT TOP
+        ============================================================ */
         .top-navbar { 
-            flex-shrink: 0; /* Prevents navbar from squishing */
+            flex: 0 0 auto;                  /* ✅ Never grows/shrinks */
             background: #fff; 
             border-bottom: 1px solid #e9ecef; 
             padding: 10px 20px; 
@@ -147,6 +148,17 @@
             z-index: 1000; 
             box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
         }
+		/* Clickable HD link */
+		.hd-link {
+			text-decoration: none !important;
+			display: inline-block;
+			cursor: pointer;
+		}
+		.hd-link:hover .status-badge {
+			transform: scale(1.15);
+			box-shadow: 0 3px 8px rgba(180, 83, 9, 0.5);
+			transition: all 0.2s ease;
+		}
         
         .nav-left { display: flex; align-items: center; gap: 40px; }
         .employee-nav-icon { width: 45px; height: 45px; border-radius: 60%; object-fit: cover; border: 2px solid #000; flex-shrink: 0; }
@@ -161,28 +173,31 @@
         .view-toggle-btn-custom { padding: 8px 24px; border: 1px solid #dee2e6; background: #4361ee; font-size: 15px; font-weight: 600; color: #fff; border-radius: 8px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
         .view-toggle-btn-custom:hover { background: #3a56d4; color: #fff; }
 
-        /* --- LAYER 2: FIXED LEGEND BAR (VISIBLE IMMEDIATELY, FIRST IN VIEW) --- */
+        /* ============================================================
+           LAYER 2: LEGEND BAR — FROZEN BELOW NAVBAR
+        ============================================================ */
         .legend-bar { 
-            flex-shrink: 0; /* Crucial: locks this bar in place */
+            flex: 0 0 auto;                  /* ✅ Never grows/shrinks */
             background: #fff; 
-            border-bottom: 1px solid #dee2e6; /* Border underneath instead of top */
+            border-bottom: 1px solid #dee2e6;
             padding: 10px 20px; 
             display: flex; 
             align-items: center; 
             gap: 22px; 
             flex-wrap: wrap; 
             z-index: 200; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03); /* Subtle lift to separate from table */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
         }
         .legend-item { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #495057; font-weight: 500; }
         .legend-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 22px; padding: 0 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
 
-        /* --- LAYER 3: SCROLLABLE TABLE AREA (FILLS REMAINING HEIGHT) --- */
+        /* ============================================================
+           LAYER 3: SCROLLABLE TABLE AREA — TAKES REMAINING SPACE
+        ============================================================ */
         .main-content { 
-            flex: 1 1 auto; /* Grows to fill all space left by NavBar + Legend */
-            min-height: 0; /* Required for nested flex scrolling */
-            padding: 0; 
-            overflow: hidden; /* Container doesn't scroll, inner wrapper does */
+            flex: 1 1 auto;                  /* ✅ Fills remaining space */
+            min-height: 0;                   /* ✅ Critical for flex scroll */
+            overflow: hidden;
             display: flex; 
             flex-direction: column; 
             background-color: #fff;
@@ -190,18 +205,65 @@
 
         .table-wrapper { 
             flex: 1 1 auto; 
-            min-height: 0; /* Allows shrinking below content size */
-            overflow: auto; /* Only this part scrolls vertically/horizontally */
+            min-height: 0;                   /* ✅ Critical for inner scroll */
+            overflow: auto !important;       /* ✅ ONLY this scrolls */
             position: relative; 
         }
 
-        .attendance-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
-        .attendance-table thead { position: sticky; top: 0; z-index: 100; }
-        .attendance-table thead th { background: #1b355a; border-bottom: 2px solid #e9ecef; padding: 12px 8px; text-align: center; font-weight: 600; font-size: 12px; white-space: nowrap; min-width: 70px; }
+        .attendance-table { 
+            width: max-content; 
+            min-width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0; 
+        }
+
+        /* ============================================================
+           STICKY DATE HEADER ROW — FROZEN AT TOP OF TABLE
+        ============================================================ */
+        .attendance-table thead { 
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 100; 
+        }
+        .attendance-table thead th { 
+            background: #1b355a; 
+            border-bottom: 2px solid #e9ecef; 
+            padding: 12px 8px; 
+            text-align: center; 
+            font-weight: 600; 
+            font-size: 12px; 
+            white-space: nowrap; 
+            min-width: 70px; 
+            position: sticky !important;     /* ✅ Each th sticky */
+            top: 0 !important;
+        }
         .attendance-table thead th .date-num { display: block; font-size: 15px; font-weight: 700; color: #ffffff; }
         .attendance-table thead th .day-name { display: block; font-size: 13px; font-weight: 500; color: #ffffff; margin-top: 2px; }
-        .attendance-table thead th.employee-header { min-width: 220px; text-align: left; padding-left: 20px; font-size: 18px; position: sticky; left: 0; z-index: 110; background: #1b355a; color: #ffffff; }
-        .attendance-table thead th.total-header { background: #eef2ff; border-bottom: 2px solid #4361ee; border-left: 1px solid #c7d2fe; min-width: 85px; position: sticky; z-index: 95; }
+        
+        /* TOP-LEFT CORNER — EMPLOYEE NAME HEADER */
+        .attendance-table thead th.employee-header { 
+            min-width: 220px; 
+            text-align: left; 
+            padding-left: 20px; 
+            font-size: 18px; 
+            position: sticky !important; 
+            left: 0 !important; 
+            top: 0 !important;               /* ✅ Sticks to TOP and LEFT */
+            z-index: 110;                    /* ✅ Above all other headers */
+            background: #1b355a; 
+            color: #ffffff; 
+        }
+        
+        /* TOTAL HEADERS (Present, SL, CL...) — STICKY ON TOP */
+        .attendance-table thead th.total-header { 
+            background: #eef2ff; 
+            border-bottom: 2px solid #4361ee; 
+            border-left: 1px solid #c7d2fe; 
+            min-width: 85px; 
+            position: sticky !important; 
+            top: 0 !important;
+            z-index: 95; 
+        }
         .attendance-table thead th.total-header .total-label { display: block; font-size: 11px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.4px; }
         .attendance-table thead th.total-header .total-sub { display: block; font-size: 9px; font-weight: 500; color: #6366f1; margin-top: 2px; }
         .attendance-table thead th.total-header.first-total { border-left: 2px solid #4361ee; }
@@ -217,7 +279,19 @@
         .attendance-table thead th.total-header.absent-header { background: #fff5f5; border-bottom: 2px solid #e53e3e; border-left: 1px solid #f4c2c2; }
         .attendance-table thead th.total-header.absent-header .total-label { color: #a31d1d; }
         .attendance-table thead th.total-header.absent-header .total-sub { color: #e53e3e; }
-        .attendance-table tbody td.employee-cell { position: sticky; left: 0; z-index: 50; background: #fff; min-width: 220px; padding: 10px 15px; border-right: 1px solid #f1f3f5; }
+        
+        /* STICKY EMPLOYEE NAME COLUMN (scrolls vertical, frozen horizontal) */
+        .attendance-table tbody td.employee-cell { 
+            position: sticky !important; 
+            left: 0 !important; 
+            z-index: 50; 
+            background: #fff; 
+            min-width: 220px; 
+            padding: 10px 15px; 
+            border-right: 2px solid #e9ecef; 
+            box-shadow: 2px 0 4px rgba(0,0,0,0.03);
+        }
+        
         .employee-info { display: flex; align-items: center; gap: 12px; }
         .employee-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid #e9ecef; flex-shrink: 0; }
         .employee-details { display: flex; flex-direction: column; }
@@ -262,13 +336,11 @@
         .status-badge::after { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 22px; height: 2px; border-radius: 1px; }
         .attendance-table tbody td.weekend-col { background-color: #eef2f5 !important; }
         
-        /* Custom Scrollbar */
-        .table-wrapper::-webkit-scrollbar { width: 8px; height: 8px; }
+        .table-wrapper::-webkit-scrollbar { width: 10px; height: 10px; }
         .table-wrapper::-webkit-scrollbar-track { background: #f1f3f5; }
-        .table-wrapper::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 4px; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 5px; }
         .table-wrapper::-webkit-scrollbar-thumb:hover { background: #adb5bd; }
         
-        /* Striped Rows */
         .attendance-table tbody tr:nth-child(even) td { background-color: #fdfdfe; }
         .attendance-table tbody tr:nth-child(even) td.employee-cell { background-color: #fdfdfe; }
         .attendance-table tbody tr:nth-child(even) .total-cell { background-color: #f3f6ff !important; }
@@ -286,14 +358,10 @@
             .employee-name { font-size: 12px; }
         }
 
-        /* ============================================================
-           PRINT / PDF STYLES (Unchanged)
-        ============================================================ */
         @media print {
             @page { size: A4 landscape; margin: 0.3cm; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             
-            /* Show Print Header */
             .pdf-month-header {
                 display: block !important;
                 text-align: center;
@@ -305,13 +373,8 @@
                 padding-bottom: 5px;
             }
             
-            /* Hide interactive elements */
-            .top-navbar,
-            .legend-bar,
-            form,
-            .view-toggle-btn-custom { display: none !important; }
+            .top-navbar, .legend-bar, form, .view-toggle-btn-custom { display: none !important; }
             
-            /* Reset body to allow full document flow */
             html, body {
                 height: auto !important;
                 overflow: visible !important;
@@ -320,8 +383,7 @@
                 display: block !important;
             }
             
-            .main-content,
-            .table-wrapper {
+            .main-content, .table-wrapper {
                 height: auto !important;
                 max-height: none !important;
                 overflow: visible !important;
@@ -337,9 +399,7 @@
                 table-layout: auto !important;
             }
             
-            /* Unstick headers for printing */
-            .attendance-table thead th,
-            .attendance-table tbody td { 
+            .attendance-table thead th, .attendance-table tbody td { 
                 position: static !important; 
                 min-width: auto !important;
                 padding: 4px 2px !important;
@@ -347,8 +407,7 @@
                 border: 1px solid #ccc !important;
             }
             
-            .attendance-table thead th.employee-header,
-            .attendance-table tbody td.employee-cell {
+            .attendance-table thead th.employee-header, .attendance-table tbody td.employee-cell {
                 min-width: 90px !important;
                 width: 90px !important;
                 max-width: 90px !important;
@@ -366,7 +425,6 @@
             .attendance-table thead th .date-num { font-size: 9px !important; }
             .attendance-table thead th .day-name { font-size: 7px !important; }
             
-            /* Total Headers */
             .attendance-table thead th.total-header {
                 position: static !important;
                 min-width: 36px !important;
@@ -374,9 +432,6 @@
                 max-width: 36px !important;
                 padding: 4px 1px !important;
                 font-size: 7px !important;
-                display: table-cell !important;
-                visibility: visible !important;
-                opacity: 1 !important;
             }
             .attendance-table thead th.total-header                { background: #eef2ff !important; color: #1e3a8a !important; }
             .attendance-table thead th.total-header.sl-header      { background: #f3f0ff !important; color: #5b21b6 !important; }
@@ -384,76 +439,19 @@
             .attendance-table thead th.total-header.lop-header     { background: #fff1f2 !important; color: #991b1b !important; }
             .attendance-table thead th.total-header.absent-header  { background: #fff5f5 !important; color: #a31d1d !important; }
             
-            .attendance-table thead th.total-header .total-label {
-                display: block !important;
-                font-size: 7px !important;
-                font-weight: 700 !important;
-                white-space: normal !important;
-                word-break: break-word !important;
-            }
-            .attendance-table thead th.total-header .total-sub {
-                display: block !important;
-                font-size: 6px !important;
-                white-space: normal !important;
-            }
+            .attendance-table thead th.total-header .total-label { display: block !important; font-size: 7px !important; }
+            .attendance-table thead th.total-header .total-sub { display: block !important; font-size: 6px !important; }
             
-            /* Total Cells */
             .attendance-table tbody td.total-cell {
                 position: static !important;
                 min-width: 36px !important;
                 width: 36px !important;
                 max-width: 36px !important;
-                display: table-cell !important;
-                visibility: visible !important;
-                opacity: 1 !important;
             }
-            .attendance-table tbody td.total-cell                  { background: #f8faff !important; }
-            .attendance-table tbody td.total-cell.sl-cell          { background: #f5f0ff !important; }
-            .attendance-table tbody td.total-cell.cl-cell          { background: #eff6ff !important; }
-            .attendance-table tbody td.total-cell.lop-cell         { background: #fff5f5 !important; }
-            .attendance-table tbody td.total-cell.absent-only-cell { background: #fff5f5 !important; }
             
-            /* Badges */
-            .total-value {
-                min-width: 22px !important;
-                height: 18px !important;
-                padding: 0 2px !important;
-                font-size: 8px !important;
-                border-radius: 3px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-            }
-            .total-present     { background: #e7f6ec !important; color: #1b6e3d !important; }
-            .total-absent      { background: #fdecec !important; color: #a31d1d !important; }
-            .total-hd-count    { background: #fef3c7 !important; color: #b45309 !important; }
-            .total-sl          { background: #ede9fe !important; color: #5b21b6 !important; }
-            .total-cl          { background: #dbeafe !important; color: #1e40af !important; }
-            .total-lop         { background: #fee2e2 !important; color: #991b1b !important; }
-            .total-absent-only { background: #fdecec !important; color: #a31d1d !important; }
-            
-            .status-badge {
-                min-width: 20px !important;
-                width: 20px !important;
-                height: 18px !important;
-                padding: 0 !important;
-                font-size: 7px !important;
-                line-height: 18px !important;
-                border-radius: 3px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-            }
+            .total-value { min-width: 22px !important; height: 18px !important; padding: 0 2px !important; font-size: 8px !important; }
+            .status-badge { min-width: 20px !important; width: 20px !important; height: 18px !important; padding: 0 !important; font-size: 7px !important; line-height: 18px !important; }
             .status-badge::after { display: none !important; }
-            .status-fd           { background: #e7f6ec !important; color: #1b6e3d !important; }
-            .status-hd           { background: #fef3c7 !important; color: #b45309 !important; }
-            .status-absent       { background: #fdecec !important; color: #a31d1d !important; }
-            .status-leave-sick   { background: #ede9fe !important; color: #5b21b6 !important; }
-            .status-leave-casual { background: #dbeafe !important; color: #1e40af !important; }
-            .status-lop          { background: #fee2e2 !important; color: #991b1b !important; }
-            .status-cl1          { background: #cffafe !important; color: #155e75 !important; }
-            .status-cl2          { background: #cffafe !important; color: #155e75 !important; }
-            .status-w            { background: #e2e8f0 !important; color: #475569 !important; }
             
             .employee-info { gap: 4px !important; }
             .employee-avatar { width: 18px !important; height: 18px !important; }
@@ -465,10 +463,9 @@
 </head>
 <body>
 
-    <!-- PRINT HEADER -->
     <div class="pdf-month-header">Attendance Tracker Summary &mdash; <%=baseDate.toString("MMMM yyyy")%></div>
 
-    <!-- LAYER 1: TOP NAVIGATION -->
+    <!-- LAYER 1: NAVBAR -->
     <nav class="top-navbar">
         <div class="nav-left">
             <ul class="breadcrumb-custom"><li><h3 style="margin:0;"><b>Employee Attendance Calendar</b></h3></li></ul>
@@ -496,9 +493,7 @@
         </div>
     </nav>
 
-    <!-- ========================================== -->
-    <!-- LAYER 2: LEGEND (VISIBLE IMMEDIATELY)      -->
-    <!-- ========================================== -->
+    <!-- LAYER 2: LEGEND -->
     <div class="legend-bar">
         <div class="legend-item"><span class="legend-chip status-fd" style="color:#fff;">P</span>Full Day Present (&ge; 8 Hrs / Friday &ge; 7 Hrs)</div>
         <div class="legend-item"><span class="legend-chip status-hd">HD</span>Half Day (&ge; 4 Hrs)</div>
@@ -512,11 +507,9 @@
         <div class="legend-item"><span class="text-muted" style="margin-right:4px; font-weight:bold;">—</span>Future Date</div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- LAYER 3: SCROLLABLE DATA TABLE             -->
-    <!-- ========================================== -->
+    <!-- LAYER 3: SCROLLABLE TABLE -->
     <div class="main-content">
-        <div class="table-wrapper">
+        <div class="table-wrapper" id="tableWrapper">
             <table class="attendance-table">
                 <thead>
                     <tr>
@@ -631,7 +624,7 @@
 							hoursWorked = att.Final_Hours_Worked;
 						}
 					}
-					requiredPresentHours = if(isFri,7.0,8.0);
+					requiredPresentHours = if(isFri,8.0,8.0);
 					if(hoursWorked >= requiredPresentHours)
 					{
 						rowPresent = rowPresent + 1;
@@ -681,13 +674,35 @@
 						}
 						else
 						{
+							// Build dynamic URL with employee filter and date filter
+							id = emp.Employee.ID;
+							attend_emo_obj = Attendance[Employee.Name == name];
+							empName = name;
+							dateFormatted = checkDate.toString("dd-MMM-yyyy");
+							// 							// 1. Get the time string from your Date-Time field
+							// 							timeString = input.Date_Time_Field.toString("HH:mm:ss");
+							// 							// 2. Convert and map it directly into your Time field
+							// 							input.Time_Field = timeString.toTime("HH:mm:ss");
+							// If Punch_Time is a DateTime field
+							// 							time = "GET_ZOHO_DATE_TIME_FIELD_HERE";
+							// 							timeReformat = zohoDateTime.replaceAll("T"," ");
+							// 							punchDateTime = emp.Punches.Punch_Time.getTime(12, true);         // Single record
+							emp_punch = Attendance[Date_field == checkDate.toString("dd-MMM-yyyy") && Employee == attend_emo_obj.Employee];
+							punchDateTime = emp_punch.Punches.Punch_Time.get(0).getTime(12,true);
+							hdreporturl = "https://creatorapp.zoho.in/zentegraindia/attendance-payroll-management#Form:Attendance_Regularization?zc_LoadIn=dialog&Employee=" + attend_emo_obj.Employee + "&Date_field=" + checkDate.toString("dd-MMM-yyyy") + "&From_Time=" + punchDateTime;
 							displayStatus = "HD";
 							badgeClass = "status-hd";
-							titleText = "Half Day (" + hoursWorked + " hrs)";
-						}
-						%>
-<span class="status-badge <%=badgeClass%>" title="<%=titleText%>"><%=displayStatus%></span>
+							titleText = "Half Day - " + name + " on " + dateFormatted + " (" + hoursWorked + " hrs) - Click to view report";
+							%>
+<a href="<%=hdreporturl%>" 
+						   onclick="window.open(this.href, 'HDReportPopup_<%=name%>_<%=dateFormatted%>', 'width=100,height=700,left=200,top=100,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no'); return false;" 
+						   class="hd-link"
+						   title="<%=titleText%>"
+						   style="cursor: pointer; text-decoration: none;">
+							<span class="status-badge status-hd">HD</span>
+						</a>
 <%
+						}
 					}
 					else
 					{
@@ -811,6 +826,33 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- ============================================================
+         JAVASCRIPT FIX FOR ZOHO IFRAME HEIGHT
+         Forces body to use actual visible height instead of broken 100%
+         This makes sticky headers work properly inside Zoho
+    ============================================================ -->
+    <script>
+        function fixLayoutHeight() {
+            // Force body height to viewport height
+            document.documentElement.style.height = window.innerHeight + 'px';
+            document.body.style.height = window.innerHeight + 'px';
+        }
+        
+        // Run on load
+        fixLayoutHeight();
+        
+        // Run after a small delay (Zoho iframe may resize)
+        setTimeout(fixLayoutHeight, 100);
+        setTimeout(fixLayoutHeight, 500);
+        setTimeout(fixLayoutHeight, 1000);
+        
+        // Run on window resize
+        window.addEventListener('resize', fixLayoutHeight);
+        
+        // Run on orientation change (mobile)
+        window.addEventListener('orientationchange', fixLayoutHeight);
+    </script>
 </body>
 </html>
 <%
